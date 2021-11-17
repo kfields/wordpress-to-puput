@@ -20,6 +20,9 @@ from django.utils import timezone
 from django.utils.html import strip_tags
 from django.utils.text import Truncator
 
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
+
 from puput.models import BlogPage
 from puput.models import Category as PuputCategory
 from puput.models import CategoryEntryPage as PuputCategoryEntryPage
@@ -49,12 +52,20 @@ class Command(LabelCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('wxr_file')
+        parser.add_argument('--site', default=None, help='Url of remote site')
         parser.add_argument('--slug', default='blog', help='Slug of the blog.')
         parser.add_argument('--title', default='Blog', help='Title of the blog.')
 
     def handle(self, wxr_file, **options):
+        self.remote_site = options['site']
         self.get_blog_page(options['slug'], options['title'])
-        self.tree = ET.parse(wxr_file)
+        #self.tree = ET.parse(wxr_file)
+        with open(wxr_file, "rb") as f:
+            text = f.read()
+        #parser = ET.XMLParser(strip_cdata=False)
+        parser = ET.XMLParser()
+        self.tree = ET.XML(text, parser)
+
         self.WP_NS = self.WP_NS.format(self.get_wordpress_version(self.tree))
         self.import_authors(self.tree)
         self.categories = self.import_categories(self.tree.findall(u'channel/{{{0:s}}}category'.format(self.WP_NS)))
@@ -255,9 +266,17 @@ class Command(LabelCommand):
                 self.import_entry(title, content, items, item_node)
 
     def _import_image(self, image_url):
+
+        val = URLValidator()
+        try:
+            val(image_url)
+        except ValidationError as e:
+            #print(e)
+            image_url = f"{self.remote_site}{image_url}"
+
         image = NamedTemporaryFile(delete=True)
         try:
-            response = requests.get(image_url)
+            response = requests.get(image_url, headers={"User-Agent": "XY"})
             if response.status_code == 200:
                 image.write(response.content)
                 image.flush()
