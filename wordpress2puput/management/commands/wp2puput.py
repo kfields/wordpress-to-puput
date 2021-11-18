@@ -210,7 +210,8 @@ class Command(LabelCommand):
         content = content.decode('UTF-8')
         excerpt = strip_tags(item_node.find(u'{{{0:s}excerpt/}}encoded'.format(self.WP_NS)).text or '')
         if not excerpt and content:
-            excerpt = Truncator(content).words(50)
+            #excerpt = Truncator(content).words(50)
+            excerpt = Truncator(strip_tags(content)).words(50)
         slug = slugify(title)[:255] or u'post-{0:s}'.format(item_node.find(u'{{{0:s}}}post_id'.format(self.WP_NS)).text)
         creator = item_node.find('{http://purl.org/dc/elements/1.1/}creator').text
         try:
